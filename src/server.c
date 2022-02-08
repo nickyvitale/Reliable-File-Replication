@@ -38,7 +38,7 @@ void handleClient(int sockfd, char *outfileName, struct sockaddr *cliaddr, int l
 	char payload[MAXLINE];
 	int SN;
 	while (1){
-		n = recvfrom(sockfd,(char *)rcvdPacket, MAXLINE, 0, (struct sockaddr *) cliaddr, &len);
+		n = recvfrom(sockfd,rcvdPacket, MAXLINE, 0, (struct sockaddr *) cliaddr, &len);
 		if (n == 0){ // Final packet sent is always of size 0
 			printf("End handle function\n");
 			break;
@@ -46,9 +46,6 @@ void handleClient(int sockfd, char *outfileName, struct sockaddr *cliaddr, int l
 		printf("%s\n",rcvdPacket);
 		memcpy(&SN, &rcvdPacket, HEADERSIZE);
 		memcpy(payload, &rcvdPacket[HEADERSIZE], n-HEADERSIZE);
-
-		
-
 
 		int wrote = write(outfile, payload, n-HEADERSIZE);
 		if (wrote < 0){

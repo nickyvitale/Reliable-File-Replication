@@ -134,7 +134,10 @@ int main(int argc, char *argv[]){
 		
 		memcpy(&packet, &count, sizeof(count));
 		memcpy(&packet[HEADERSIZE], &message, rd);
-		//packet[rd+HEADERSIZE] = '\0';
+		
+		char ctn[rd];
+		memcpy(&ctn, &packet[HEADERSIZE], rd);
+		printf("%s\n", ctn);
 		count++;
 	}
 	
@@ -146,7 +149,6 @@ int main(int argc, char *argv[]){
 
 	// Send contents of file
 	for (int i = 0; i < count; i++){
-		printf("%s\n",packet);
 		sendto(sockfd, packet, mtu, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr));
 	}
 
