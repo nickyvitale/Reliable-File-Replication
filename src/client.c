@@ -211,6 +211,7 @@ int main(int argc, char *argv[]){
 					exit(1);
 				}
 			}
+			printf("now, DATA, %d, %d, %d, %d\n", sendBase, sendBase, nextSeqNum, sendBase, winsz);
 			packetBuffer[nextSeqNum].timesSent++;
 			
 			sendto(sockfd, packetBuffer[nextSeqNum].data, packetBuffer[nextSeqNum].size + HEADERSIZE, MSG_CONFIRM,								     (const struct sockaddr *) &servaddr, sizeof(servaddr));
@@ -227,7 +228,8 @@ int main(int argc, char *argv[]){
 				exit(1);
 			}
                 }
-                else{ // Ack received
+		else{ // Ack received
+			printf("now, ACK, %d, %d, %d, %d\n", sendBase, sendBase, nextSeqNum, sendBase, winsz);
 			sendBase++;
 		}	
 	}

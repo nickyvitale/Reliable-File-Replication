@@ -9,6 +9,7 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 #define HEADERSIZE 4
 #define MAXLINE 32768
 
@@ -50,7 +51,8 @@ void handleClient(int sockfd, char *outfileName, struct sockaddr *cliaddr, int l
 		memcpy(&SN, &rcvdPacket, HEADERSIZE);
 		memcpy(&payload, &rcvdPacket[HEADERSIZE], n-HEADERSIZE);
 
-		if (SN == expectedSN){ // If packet that is expected next	
+		if (SN == expectedSN){ // If packet that is expected next
+			printf("now, ACK, %d\n", SN);	
 			expectedSN++;
 			sendto(sockfd, ack, sizeof(ack), MSG_CONFIRM, (const struct sockaddr*) cliaddr, len);
 
@@ -61,7 +63,7 @@ void handleClient(int sockfd, char *outfileName, struct sockaddr *cliaddr, int l
 			}
 		}
 		else{ // If not expected packet (because order is wrong, or because packets got dropped)
-			printf("DROP\n");
+			printf("now, DATA, %d\n", SN);
 		}
 	}
 	close(outfile);

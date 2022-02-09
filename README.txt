@@ -8,9 +8,9 @@ README.txt-> the file you are reading.
 
 bin (directory)-> no files in it, but when make is run, the binaries will be placed here.
 
-./bin/myclient-> this binary file is the implementation of the client side. it's job is to read a file, write it to a UDP socket which sends it to the server, then read back the server's response into an output file.
+./bin/myclient-> this binary file is the implementation of the client side. it's job is to read a file, write it to a UDP socket which sends it to the server. Also, it is in charge of the various bookkeeping tasks of the assignment, as the server is really just a "dummy" server that reads data and sends acks.
 
-./bin/myserver-> this binary file is the implementation of the server side. it's job is to wait for the client to send it something, read the client's messages, and then echo them back to the client.
+./bin/myserver-> this binary file is the implementation of the server side. it's job is to wait for the client to send it something, read the client's messages, and then write them to the outfile.
 
 doc (directory)-> the directory that contains the documentation file for the assignment.
 
