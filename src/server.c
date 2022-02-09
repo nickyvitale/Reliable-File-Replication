@@ -8,7 +8,8 @@
 #include <netinet/in.h>
 #include <ctype.h>
 #include <fcntl.h>
-#define HEADERSIZE 8
+#include <errno.h>
+#define HEADERSIZE 4
 #define MAXLINE 32768
 
 int isValidPort(char *port){
@@ -24,33 +25,43 @@ int isValidPort(char *port){
 }
 
 void handleClient(int sockfd, char *outfileName, struct sockaddr *cliaddr, int len){
-	char *ack = "Received outfile name\n";
+	char *ack = "ACK\n";
 	sendto(sockfd, ack, strlen(ack), MSG_CONFIRM, (const struct sockaddr*) cliaddr, len);
-	
+
 	int outfile = open(outfileName, O_WRONLY | O_CREAT | O_TRUNC);
 	if (outfile < 0){
 		fprintf(stderr, "Couldn't open outfile\n");
 		exit(1);
 	}
-	
+
 	int n;
 	char rcvdPacket[MAXLINE];
 	char payload[MAXLINE];
 	int SN;
+	int expectedSN = 0;
 	while (1){
-		n = recvfrom(sockfd,rcvdPacket, MAXLINE, 0, (struct sockaddr *) cliaddr, &len);
+		n = recvfrom(sockfd, rcvdPacket, MAXLINE, 0, (struct sockaddr *) cliaddr, &len);	
+
 		if (n == 0){ // Final packet sent is always of size 0
 			printf("End handle function\n");
 			break;
 		}
-		printf("%s\n",rcvdPacket);
-		memcpy(&SN, &rcvdPacket, HEADERSIZE);
-		memcpy(payload, &rcvdPacket[HEADERSIZE], n-HEADERSIZE);
 
-		int wrote = write(outfile, payload, n-HEADERSIZE);
-		if (wrote < 0){
-			fprintf(stderr, "Failed to write to outfile\n");
-			exit(1);
+		memcpy(&SN, &rcvdPacket, HEADERSIZE);
+		memcpy(&payload, &rcvdPacket[HEADERSIZE], n-HEADERSIZE);
+
+		if (SN == expectedSN){ // If packet that is expected next	
+			expectedSN++;
+			sendto(sockfd, ack, sizeof(ack), MSG_CONFIRM, (const struct sockaddr*) cliaddr, len);
+
+			int wrote = write(outfile, payload, n-HEADERSIZE);
+			if (wrote < 0){
+				fprintf(stderr, "Failed to write to outfile\n");
+				exit(1);
+			}
+		}
+		else{ // If not expected packet (because order is wrong, or because packets got dropped)
+			printf("DROP\n");
 		}
 	}
 	close(outfile);
@@ -102,4 +113,3 @@ int main(int argc, char *argv[]) {
        
 	return 0;
 }
-

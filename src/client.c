@@ -13,6 +13,21 @@
 #define HEADERSIZE 4
 #define MAXMTU 32768
 
+struct packet{
+	int size;
+	char data[MAXMTU];
+	int timesSent;
+};
+
+int isNumber(char *str){
+	for (int i = 0; i < str[i] != '\0'; i++){
+		if (!isdigit(str[i])){
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int isValidPort(char *port){
         for (int i = 0; i < port[i] != '\0'; i++){
                 if (!isdigit(port[i])){
@@ -87,10 +102,20 @@ int main(int argc, char *argv[]){
 		fprintf(stderr, "Invalid MTU\n");
 		exit(1);
 	}
+	if (!isNumber(argv[4])){
+		fprintf(stderr, "Invalid window size\n");
+		exit(1);
+	}
 	
-
 	// Start main code
 	int mtu = atoi(argv[3]); // claims mtu from the args
+	int winsz = atoi(argv[4]);
+	if (winsz <= 0){
+		fprintf(stderr, "Window size must be greater than 0\n");
+		exit(1);
+	}
+
+
 	int sockfd;
 	if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
         	fprintf(stderr, "Failed to create socket\n");
@@ -98,7 +123,7 @@ int main(int argc, char *argv[]){
         }
 	
 	struct timeval tv; // timeout stuff
-	tv.tv_sec = 30; // 30 second timer
+	tv.tv_sec = 60; // 60 second timer
 	tv.tv_usec = 0;
 	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 	
@@ -108,20 +133,47 @@ int main(int argc, char *argv[]){
 	servaddr.sin_port = htons(atoi(argv[2]));
 	inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
 	
-	int rd, n, len;
+	// Send the first packet to the server-> the name of the outfile
+	sendto(sockfd, (const char *)argv[6], strlen(argv[6]), MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+
+	// Get response from server acknowledging that the packet was received
+	// If server not available, will timeout and properly exit
+	int n, len;
+	char recBuffer[mtu];
+	for ( ; ; ) {
+		n = recvfrom(sockfd, (char *)recBuffer, mtu, 0, (struct sockaddr*) &servaddr, &len);
+		if (n < 0){
+			if (errno == EWOULDBLOCK) {
+				fprintf(stderr, "Timeout-> failed to connect to the server\n");
+				exit(1);
+			}
+			else {
+				fprintf(stderr, "recvfrom error\n");
+				exit(1);
+			}
+		}
+		else{
+			break;
+		}
+	}
+
+	// Next step is to send actual contents of the file (begin actual meat/potatoes of the protocol)
+	int rd;
 	int infile = open(argv[5], O_RDONLY | O_CREAT);
-	char message[mtu-HEADERSIZE], recBuffer[mtu];
+	char message[mtu-HEADERSIZE];
 	
 	// Create buffer of packets by reading from file and filling up array
 	int bufferSize = DEFBUFSIZE;
-
-	char **packetBuffer = (char**)malloc(bufferSize * sizeof(char *));
-
+	struct packet *packetBuffer = (struct packet*)malloc(bufferSize * sizeof(struct packet));
+	if (packetBuffer == NULL){
+		fprintf(stderr, "Failed to malloc packet buffer\n");
+		exit(1);
+	}
+	
 	int count = 0;
-	char packet[mtu];
 	while ((rd = read(infile, message, mtu-HEADERSIZE)) > 0){
-		if (count == bufferSize){
-			char **enlargedBuff = (char **)realloc(packetBuffer, bufferSize * 2 *sizeof(char *));
+		if (count == bufferSize){ // For reallocating buffer if need be
+			struct packet *enlargedBuff = (struct packet*)realloc(packetBuffer, bufferSize * 2 *sizeof(struct packet));
 			if (enlargedBuff != NULL){
 				packetBuffer = enlargedBuff;
 			}
@@ -131,33 +183,62 @@ int main(int argc, char *argv[]){
 			}
 			bufferSize *= 2;
 		}
-		
-		memcpy(&packet, &count, sizeof(count));
-		memcpy(&packet[HEADERSIZE], &message, rd);
-		
-		char ctn[rd];
-		memcpy(&ctn, &packet[HEADERSIZE], rd);
-		printf("%s\n", ctn);
+
+		packetBuffer[count].size = rd;
+		packetBuffer[count].timesSent = 0;
+		memcpy(&packetBuffer[count].data, &count, sizeof(count)); // Sequence Number
+		memcpy(&packetBuffer[count].data[HEADERSIZE], &message, rd); // Payload
 		count++;
 	}
 	
-	// Send the first packet to the server-> the name of the outfile
-	sendto(sockfd, (const char *)argv[6], strlen(argv[6]), MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr));
-
-	// Get response from server acknowledging that the packet was received
-	n = recvfrom(sockfd, (char *)recBuffer, mtu, 0, (struct sockaddr*) &servaddr, &len);
-
 	// Send contents of file
-	for (int i = 0; i < count; i++){
-		sendto(sockfd, packet, mtu, MSG_CONFIRM, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+	tv.tv_sec = 3; // 3 second timer
+	tv.tv_usec = 0;
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+	int sendBase = 0;
+	int nextSeqNum = 0;
+	while (sendBase < count){
+		while (nextSeqNum < count && nextSeqNum < sendBase + winsz){ // If can still transmit some packets within window
+			if (packetBuffer[nextSeqNum].timesSent != 0){ // Detect packet loss
+				fprintf(stderr, "Packet loss detected\n");
+				if (packetBuffer[nextSeqNum].timesSent == 5){ // Surpassed limit for retransmission
+					fprintf(stderr, "Reached max re-transmission limit\n");
+					// Let server know that client is closing
+					char *finMsg = "";
+       			 	 	sendto(sockfd,finMsg, strlen(finMsg), MSG_CONFIRM, (const struct sockaddr*) &servaddr, sizeof(servaddr));
+					// Close
+					exit(1);
+				}
+			}
+			packetBuffer[nextSeqNum].timesSent++;
+			
+			sendto(sockfd, packetBuffer[nextSeqNum].data, packetBuffer[nextSeqNum].size + HEADERSIZE, MSG_CONFIRM,								     (const struct sockaddr *) &servaddr, sizeof(servaddr));
+			nextSeqNum++;
+		}	
+
+		n = recvfrom(sockfd, (char *)recBuffer, mtu, 0, (struct sockaddr*) &servaddr, &len); // Attempt to receive ack
+		if (n < 0){
+			if (errno == EWOULDBLOCK) { // If timeout on receiving ack-> retransmit
+				nextSeqNum = sendBase; // Restart from the packet that failed to receive acknowledgement
+                	}
+                	else { // Some sort of recv error
+				fprintf(stderr, "recvfrom error\n");			
+				exit(1);
+			}
+                }
+                else{ // Ack received
+			sendBase++;
+		}	
 	}
 
 	// Send last packet indicating done
-	char *finMsg = "";
+	char *finMsg = "";	
 	sendto(sockfd, finMsg, strlen(finMsg), 0, (const struct sockaddr*) &servaddr, sizeof(servaddr));
 
 	close(infile);
 	close(sockfd);
+	free(packetBuffer);
 
 	return 0;
 }
