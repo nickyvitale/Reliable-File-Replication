@@ -3,7 +3,7 @@ CC = gcc
 all: myclient myserver
 
 myclient: client.o
-	gcc client.o -o ./bin/myclient
+	gcc client.o -pthread -o ./bin/myclient
 client.o: ./src/client.c
 	gcc -c ./src/client.c
 myserver: server.o
