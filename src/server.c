@@ -63,7 +63,6 @@ void handleClient(int sockfd, char *outfileName, struct sockaddr *cliaddr, int l
 		n = recvfrom(sockfd, rcvdPacket, MAXLINE, 0, (struct sockaddr *) cliaddr, &len);	
 
 		if (n == 0){ // Final packet sent is always of size 0
-			printf("End handle function REMOVE EVENTUALLY\n");
 			break;
 		}
 
@@ -147,7 +146,6 @@ int main(int argc, char *argv[]) {
 	int len, n;
   
 	while (1){
-		printf("Enter server main loop\n"); 
 		len = sizeof(cliaddr);	
 		char buffer[MAXLINE]; 
  		n = recvfrom(sockfd, (char *)buffer, MAXLINE, MSG_WAITALL, (struct sockaddr *) &cliaddr, &len);

@@ -299,7 +299,7 @@ void *threadMain(void *argv){
 					pthread_exit((void *)returnVal);
 				}
 			}
-			printf("%s, DATA, %d, %d, %d, %d\n", nowStringMS,sendBase, sendBase, nextSeqNum, sendBase, winsz);
+			printf("%s, DATA, %d, %d, %d, %d\n", nowStringMS, nextSeqNum, sendBase, nextSeqNum + 1, sendBase + winsz);
 			packetBuffer[nextSeqNum].timesSent++;
 			
 			sendto(sockfd, packetBuffer[nextSeqNum].data, packetBuffer[nextSeqNum].size + HEADERSIZE, MSG_CONFIRM,								     (const struct sockaddr *) &servaddr, sizeof(servaddr));
@@ -318,7 +318,7 @@ void *threadMain(void *argv){
 			}
                 }
 		else{ // Ack received
-			printf("%s, ACK, %d, %d, %d, %d\n", nowStringMS,sendBase, sendBase, nextSeqNum, sendBase, winsz);
+			printf("%s, ACK, %d, %d, %d, %d\n", nowStringMS, sendBase, sendBase, nextSeqNum, sendBase + winsz);
 			sendBase++;
 		}	
 	}
