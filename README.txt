@@ -12,10 +12,11 @@ bin (directory)-> no files in it, but when make is run, the binaries will be pla
 
 ./bin/myserver-> this binary file is the implementation of the server side. it's job is to wait for the client to send it something, read the client's messages, and then write them to the outfile.
 
-doc (directory)-> the directory that contains the documentation file for the assignment.
+doc (directory)-> the directory that contains the documentation file for the assignment and the graph of sent data and received acks with respect to time.
 
-./doc/documentation.txt -> the only file in the doc directory. its purpose is to describe the methodology
-of the assignment, as well as 5 test cases that were utilized.
+./doc/documentation.txt -> This file's purpose is to describe the methodology of the assignment, as well as 5 test cases that were utilized.
+
+./doc/dataAndAcksGraph.pdf -> This file is a pdf that contains the graph of data that is send and acks that are received by the client with respect to time.
 
 src (directory)-> the directory that contains all the source code for the assignment.
 
